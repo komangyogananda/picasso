@@ -96,7 +96,7 @@ def check_pick(f):
                 ("No localizations picked." " Please pick first."),
             )
         else:
-            return f(args[0])
+            return f(*args)
 
     return wrapper
 
@@ -114,7 +114,7 @@ def check_picks(f):
                 ),
             )
         else:
-            return f(args[0])
+            return f(*args)
 
     return wrapper
 
@@ -4506,6 +4506,165 @@ class View(QtWidgets.QLabel):
         return self.index_blocks[channel]
 
     @check_picks
+    def save_pick_template(self, path="pick_template.yaml"):
+      if self._pick_shape == "Rectangle":
+          raise NotImplementedError(
+              "Pick similar not implemented for rectangle picks"
+          )
+      channel = self.get_channel("Pick similar")
+      if channel is not None:
+          progress = lib.ProgressDialog("Saving pick as template", 0, 2, self)
+          progress.set_value(0)
+          d = self.window.tools_settings_dialog.pick_diameter.value()
+          r = d / 2
+          std_range = (
+              self.window.tools_settings_dialog.pick_similar_range.value()
+          )
+          index_blocks = self.get_index_blocks(channel)
+          n_locs = []
+          rmsd = []
+          for i, pick in enumerate(self._picks):
+              x, y = pick
+              block_locs = postprocess.get_block_locs_at(x, y, index_blocks)
+              pick_locs = lib.locs_at(x, y, block_locs, r)
+              n_locs.append(len(pick_locs))
+              rmsd.append(self.rmsd_at_com(pick_locs))
+
+          mean_n_locs = np.mean(n_locs)
+          mean_rmsd = np.mean(rmsd)
+          std_n_locs = np.std(n_locs)
+          std_rmsd = np.std(rmsd)
+          min_n_locs = mean_n_locs - std_range * std_n_locs
+          max_n_locs = mean_n_locs + std_range * std_n_locs
+          min_rmsd = mean_rmsd - std_range * std_rmsd
+          max_rmsd = mean_rmsd + std_range * std_rmsd
+          # x, y coordinates of found similar regions:
+          x_similar = np.array([_[0] for _ in self._picks])
+          y_similar = np.array([_[1] for _ in self._picks])
+
+          data = {
+            "r": r,
+            "d": d,
+            "min_n_locs": min_n_locs.tolist(),
+            "max_n_locs": max_n_locs.tolist(),
+            "min_rmsd": min_rmsd.tolist(),
+            "max_rmsd": max_rmsd.tolist(),
+            "x_similar": x_similar.tolist(),
+            "y_similar": y_similar.tolist(),
+            "purpose": "pick_template"
+          }
+          progress.set_value(1)
+          print("saving template", path)
+          with open(path, "w") as f:
+            yaml.dump(data, f)
+          print("done")
+          progress.set_value(2)
+
+
+    def pick_similar_from_template(self, path="pick_template.yaml"):
+        if self._pick_shape == "Rectangle":
+            raise NotImplementedError(
+                "Pick similar not implemented for rectangle picks"
+            )
+        channel = self.get_channel("Pick similar")
+        if channel is not None:
+            locs = self.locs[channel]
+            info = self.infos[channel]
+
+            with open(path, "r") as f:
+              data = yaml.load(f)
+            purpose = data["purpose"]
+            if purpose != "pick_template":
+              QtWidgets.QMessageBox.information(
+                self,
+                "Import Template Error",
+                (
+                    "File imported is not template file"
+                ),
+              )
+            d = data["d"]
+            r = data["r"]
+            
+            index_blocks = self.get_index_blocks(channel)
+
+            min_n_locs = data["min_n_locs"]
+            max_n_locs = data["max_n_locs"]
+            min_rmsd = data["min_rmsd"]
+            max_rmsd = data["max_rmsd"]
+            
+            # x, y coordinates of found similar regions:
+            x_similar = np.array([_[0] for _ in self._picks])
+            y_similar = np.array([_[1] for _ in self._picks])
+            # preparations for hex grid search
+            
+            x_range = np.arange(d / 2, info[0]["Width"], np.sqrt(3) * d / 2)
+            y_range_base = np.arange(d / 2, info[0]["Height"] - d / 2, d)
+            y_range_shift = y_range_base + d / 2
+            d2 = d ** 2
+            nx = len(x_range)
+            locs, size, x_index, y_index, block_starts, block_ends, K, L = (
+                index_blocks
+            )
+            
+            progress = lib.ProgressDialog("Pick similar", 0, nx, self)
+            progress.set_value(0)
+            for i, x_grid in enumerate(x_range):
+                # y_grid is shifted for odd columns
+                if i % 2:
+                    y_range = y_range_shift
+                else:
+                    y_range = y_range_base
+                for y_grid in y_range:
+                    n_block_locs = postprocess.n_block_locs_at(
+                        x_grid, y_grid, size, K, L, block_starts, block_ends
+                    )
+                    if n_block_locs > min_n_locs:
+                        block_locs = postprocess.get_block_locs_at(
+                            x_grid, y_grid, index_blocks
+                        )
+                        picked_locs = lib.locs_at(
+                            x_grid, y_grid, block_locs, r
+                        )
+                        if len(picked_locs) > 1:
+                            # Move to COM peak
+                            x_test_old = x_grid
+                            y_test_old = y_grid
+                            x_test = picked_locs.x.mean()
+                            y_test = picked_locs.y.mean()
+                            while (
+                                np.abs(x_test - x_test_old) > 1e-3
+                                or np.abs(y_test - y_test_old) > 1e-3
+                            ):
+                                x_test_old = x_test
+                                y_test_old = y_test
+                                picked_locs = lib.locs_at(
+                                    x_test, y_test, block_locs, r
+                                )
+                                x_test = picked_locs.x.mean()
+                                y_test = picked_locs.y.mean()
+                            if np.all(
+                                (x_similar - x_test) ** 2
+                                + (y_similar - y_test) ** 2
+                                > d2
+                            ):
+                                if min_n_locs < len(picked_locs) < max_n_locs:
+                                    if (
+                                        min_rmsd
+                                        < self.rmsd_at_com(picked_locs)
+                                        < max_rmsd
+                                    ):
+                                        x_similar = np.append(
+                                            x_similar, x_test
+                                        )
+                                        y_similar = np.append(
+                                            y_similar, y_test
+                                        )
+                progress.set_value(i + 1)
+            similar = list(zip(x_similar, y_similar))
+            self._picks = []
+            self.add_picks(similar)
+
+    @check_picks
     def pick_similar(self):
         if self._pick_shape == "Rectangle":
             raise NotImplementedError(
@@ -4549,6 +4708,20 @@ class View(QtWidgets.QLabel):
             locs, size, x_index, y_index, block_starts, block_ends, K, L = (
                 index_blocks
             )
+            data = {
+              "r": r,
+              "d": d,
+              "min_n_locs": min_n_locs.tolist(),
+              "max_n_locs": max_n_locs.tolist(),
+              "min_rmsd": min_rmsd.tolist(),
+              "max_rmsd": max_rmsd.tolist(),
+              "x_similar": x_similar.tolist(),
+              "y_similar": y_similar.tolist(),
+            }
+            print(data)
+            with open("pick_template.yaml", "w") as f:
+              yaml.dump(data, f)
+            
             progress = lib.ProgressDialog("Pick similar", 0, nx, self)
             progress.set_value(0)
             for i, x_grid in enumerate(x_range):
@@ -5999,9 +6172,13 @@ class Window(QtWidgets.QMainWindow):
         tools_settings_action.triggered.connect(
             self.tools_settings_dialog.show
         )
+        save_pick_template_action = tools_menu.addAction("Save pick as template")
+        save_pick_template_action.triggered.connect(self.save_pick_template)
         pick_similar_action = tools_menu.addAction("Pick similar")
         pick_similar_action.setShortcut("Ctrl+Shift+P")
         pick_similar_action.triggered.connect(self.view.pick_similar)
+        pick_similar_template_action = tools_menu.addAction("Pick similar from template")
+        pick_similar_template_action.triggered.connect(self.pick_similar_from_template)
         tools_menu.addSeparator()
         show_trace_action = tools_menu.addAction("Show trace")
         show_trace_action.setShortcut("Ctrl+R")
@@ -6731,6 +6908,13 @@ class Window(QtWidgets.QMainWindow):
         if path:
             self.view.load_picks(path)
 
+    def pick_similar_from_template(self):
+        path, ext = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Select template", filter="*.yaml"
+        )
+        if path:
+          self.view.pick_similar_from_template(path)
+
     def substract_picks(self):
         if self.view._picks:
             path, ext = QtWidgets.QFileDialog.getOpenFileName(
@@ -6996,6 +7180,16 @@ class Window(QtWidgets.QMainWindow):
         )
         if path:
             self.view.save_picks(path)
+
+    def save_pick_template(self):
+        base, ext = os.path.splitext(self.view.locs_paths[0])
+        out_path = base + "_pick_template.yaml"
+        path, ext = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Save pick template", out_path, filter="*.yaml"
+        )
+        print("selected path", path)
+        if path:
+          self.view.save_pick_template(path)
 
     def update_info(self):
         self.info_dialog.width_label.setText(
