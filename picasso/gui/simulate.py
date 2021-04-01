@@ -34,6 +34,7 @@ import os.path as _ospath
 
 from .. import io as _io
 from .. import lib, simulate
+from . import localize
 
 
 def fitFuncBg(x, a, b):
@@ -112,6 +113,37 @@ CY_DEFAULT = [
     0.0018155881468011011,
     1.011468185618154,
 ]
+
+class SimulateAndLocalizeDialog(QtWidgets.QDialog):
+    def __init__(self, parent=None):
+      super().__init__()
+      self.setWindowTitle("Picasso: Simulate and Localize")
+      self.window = parent
+      self.resize(400, 0)
+      self.setModal(False)
+      self.parent = parent
+
+      vbox = QtWidgets.QVBoxLayout(self)
+      self.parameters_localization = localize.ParametersDialog(parent)
+      vbox.addWidget(self.parameters_localization)
+      self.execute_button = QtWidgets.QPushButton("Execute")
+      vbox.addWidget(self.execute_button)
+      self.execute_button.clicked.connect(self.on_execute)
+      self.statusBar = QtWidgets.QStatusBar(self)
+      vbox.addWidget(self.statusBar)
+    
+    def on_execute(self):
+      self.statusBar.showMessage("anjaymabar")
+      self.window_localize = localize.Window()
+      self.statusBar.showMessage("simulating data...")
+      self.parent.simulate()
+      self.statusBar.showMessage("localize data")
+      filename = self.parent.fileName
+      self.statusBar.showMessage(f"saved to {filename}")
+      self.window_localize.open(filename)
+      self.window_localize.show()
+      self.window_localize.status_bar = self.statusBar
+      self.window_localize.localize()
 
 
 class Window(QtWidgets.QMainWindow):
@@ -641,6 +673,8 @@ class Window(QtWidgets.QMainWindow):
         )
 
         simulateButton = QtWidgets.QPushButton("Simulate data")
+        simulateAndLocalize = QtWidgets.QPushButton("Simulate data and Localize")
+        self.simulate_localize = SimulateAndLocalizeDialog(self)
         self.exchangeroundsEdit = QtWidgets.QLineEdit("1")
 
         self.conroundsEdit = QtWidgets.QSpinBox()
@@ -671,10 +705,12 @@ class Window(QtWidgets.QMainWindow):
         btngridR.addWidget(QtWidgets.QLabel("Export kinetic data"))
         btngridR.addWidget(self.exportkinetics, 4, 1)
         btngridR.addWidget(simulateButton, 5, 0, 1, 2)
-        btngridR.addWidget(quitButton, 6, 0, 1, 2)
+        btngridR.addWidget(simulateAndLocalize, 6, 0, 1, 2)
+        btngridR.addWidget(quitButton, 7, 0, 1, 2)
 
         simulateButton.clicked.connect(self.simulate)
         loadButton.clicked.connect(self.loadSettings)
+        simulateAndLocalize.clicked.connect(self.simulate_localize.show)
 
         self.show()
         self.changeTime()
@@ -1019,9 +1055,9 @@ class Window(QtWidgets.QMainWindow):
                 self.currentround -= 1
         else:
             fileNameOld = self.fileName
-
+            
         if fileNameOld:
-
+            print(fileNameOld)
             self.statusBar().showMessage(
                 "Set round " + str(self.currentround) + " of " + str(conrounds)
             )
@@ -1361,6 +1397,8 @@ class Window(QtWidgets.QMainWindow):
                         + ". Time elapsed: {:.2f} Seconds.".format(dt)
                     )
                     self.currentround = 0
+
+    #####################################################################
 
     def loadSettings(self):  # TODO: re-write exceptions, check key
         path, exe = QtWidgets.QFileDialog.getOpenFileName(

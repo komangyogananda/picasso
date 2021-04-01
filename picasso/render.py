@@ -11,6 +11,9 @@ import numpy as _np
 import numba as _numba
 import scipy.signal as _signal
 from tqdm import trange as _trange
+import pprint
+
+pp = pprint.PrettyPrinter(indent=2)
 
 
 _DRAW_MAX_SIGMA = 3
@@ -30,6 +33,8 @@ def render(
         except TypeError:
             raise ValueError("Need info if no viewport is provided.")
     (y_min, x_min), (y_max, x_max) = viewport
+    print("blur_method", blur_method)
+    print("viewport", viewport)
     if blur_method is None:
         return render_hist(locs, oversampling, y_min, x_min, y_max, x_max)
     elif blur_method == "gaussian":
@@ -56,11 +61,16 @@ def _render_setup(locs, oversampling, y_min, x_min, y_max, x_max):
     n_pixel_x = int(_np.ceil(oversampling * (x_max - x_min)))
     x = locs.x
     y = locs.y
+    print("preprocessed x")
+    print(x)
+    print("preprocessed y")
+    print(y)
     in_view = (x > x_min) & (y > y_min) & (x < x_max) & (y < y_max)
     x = x[in_view]
     y = y[in_view]
     x = oversampling * (x - x_min)
     y = oversampling * (y - y_min)
+    print("oversampling", oversampling)
     image = _np.zeros((n_pixel_y, n_pixel_x), dtype=_np.float32)
     return image, n_pixel_y, n_pixel_x, x, y, in_view
 
@@ -111,7 +121,10 @@ def _render_setupz(locs, oversampling, x_min, z_min, x_max, z_max, pixelsize):
 @_numba.jit(nopython=True, nogil=True)
 def _fill(image, x, y):
     x = x.astype(_np.int32)
+    print("fill")
+    print(x)
     y = y.astype(_np.int32)
+    print(y)
     for i, j in zip(x, y):
         image[j, i] += 1
 
@@ -235,6 +248,10 @@ def render_convolve(
     image, n_pixel_y, n_pixel_x, x, y, in_view = _render_setup(
         locs, oversampling, y_min, x_min, y_max, x_max
     )
+    print("x")
+    print(x)
+    print("y")
+    print(y)
     _fill(image, x, y)
     n = len(x)
     if n == 0:

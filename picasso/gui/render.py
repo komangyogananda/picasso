@@ -22,6 +22,8 @@ import matplotlib.patches as patches
 import numpy as np
 import yaml
 
+import pprint
+
 
 from matplotlib.backends.backend_qt5agg import FigureCanvas as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
@@ -50,6 +52,7 @@ N_Z_COLORS = 32
 
 matplotlib.rcParams.update({"axes.titlesize": "large"})
 
+pp = pprint.PrettyPrinter(indent=2)
 
 def get_colors(n_channels):
     hues = np.arange(0, 1, 1 / n_channels)
@@ -2557,6 +2560,7 @@ class View(QtWidgets.QLabel):
         for path in paths:
             self.add(path, render=False)
         if len(self.locs):  # In case loading was not succesful.
+            print("is fit_int_view", fit_in_view)
             if fit_in_view:
                 self.fit_in_view(autoscale=True)
             else:
@@ -4715,10 +4719,7 @@ class View(QtWidgets.QLabel):
               "max_n_locs": max_n_locs.tolist(),
               "min_rmsd": min_rmsd.tolist(),
               "max_rmsd": max_rmsd.tolist(),
-              "x_similar": x_similar.tolist(),
-              "y_similar": y_similar.tolist(),
             }
-            print(data)
             with open("pick_template.yaml", "w") as f:
               yaml.dump(data, f)
             

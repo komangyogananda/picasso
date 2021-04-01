@@ -628,7 +628,8 @@ class ParametersDialog(QtWidgets.QDialog):
         self.mng_slider.setMaximum(value)
 
     def on_preview_changed(self, state):
-        self.window.draw_frame()
+        if hasattr(self.window, 'draw_frame'):
+            self.window.draw_frame()
 
     def on_gpufit_changed(self, state):
         self.window.draw_frame()
