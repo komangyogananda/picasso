@@ -789,6 +789,7 @@ class Window(QtWidgets.QMainWindow):
         self.status_bar = self.statusBar()
         self.status_bar_frame_indicator = QtWidgets.QLabel()
         self.status_bar.addPermanentWidget(self.status_bar_frame_indicator)
+        self.on_fit_finished_callback = []
 
         #: Holds the curr movie as a numpy
         # memmap in the format (frame, y, x)
@@ -1454,6 +1455,9 @@ class Window(QtWidgets.QMainWindow):
             else:
                 locs_path = base + "_locs.hdf5"
                 self.save_locs(locs_path)
+        for subs in self.on_fit_finished_callback:
+          if callable(subs):
+            subs()
 
     def on_fit_z_progress(self, curr, total):
         message = "Fitting z coordinate {:,} / {:,} ...".format(curr, total)

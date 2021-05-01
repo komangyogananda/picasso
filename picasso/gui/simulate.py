@@ -124,6 +124,7 @@ class SimulateAndLocalizeDialog(QtWidgets.QDialog):
       self.parent = parent
       self.segmentation = 1000
       self.filename = ""
+      self.is_render_value = False
 
       vbox = QtWidgets.QVBoxLayout(self)
       self.parameters_localization = localize.ParametersDialog(parent)
@@ -139,7 +140,7 @@ class SimulateAndLocalizeDialog(QtWidgets.QDialog):
       undrift_grid.addWidget(self.is_render)
       # undrift_grid.addWidget(QtWidgets.QLabel("Undrift from RCC (Segmentation)"), 1, 0)
       self.undrift_rcc = QtWidgets.QSpinBox()
-      self.undrift_rcc.maximum(999999)
+      self.undrift_rcc.setMaximum(100000)
       self.undrift_rcc.setValue(1000)
       self.undrift_rcc.valueChanged.connect(self.on_undrift_segmentation)
       # undrift_grid.addWidget(self.undrift_rcc, 1, 1)
@@ -148,10 +149,12 @@ class SimulateAndLocalizeDialog(QtWidgets.QDialog):
       self.execute_button.clicked.connect(self.on_execute)
 
       self.window_localize = localize.Window()
+      self.window_localize.on_fit_finished_callback.append(self.execute_render)
       self.window_render = render.Window()
+      self.old_statusBar = self.statusBar
 
     def on_is_render(self, value):
-      self.is_render = value
+      self.is_render_value = value
 
     def on_undrift_segmentation(self,value):
       self.segmentation = value 
@@ -167,17 +170,19 @@ class SimulateAndLocalizeDialog(QtWidgets.QDialog):
       self.window_localize.localize()
 
     def execute_render(self):
-      f, _ = os.path.splitext(self.filename)
-      filename = f + '_locs.hdf5'
-      self.statusBar.showMessage("rendering...")
-      self.window_render.view.add(filename)
-      self.window_render.show()
-      self.statusBar.showMessage("render is done")
+      print("execute render")
+      self.statusBar = self.old_statusBar
+      if self.is_render_value:
+        f, _ = os.path.splitext(self.filename)
+        filename = f + '_locs.hdf5'
+        self.statusBar.showMessage("rendering...")
+        self.window_render.view.add(filename)
+        self.window_render.show()
+        self.statusBar.showMessage("render is done")
 
     def on_execute(self):
       self.execute_localize()
-      if self.is_render:
-        self.execute_render()
+      self.statusBar.showMessage("execution done")
 
 
 class Window(QtWidgets.QMainWindow):
@@ -2416,4 +2421,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main()# 
