@@ -2694,7 +2694,7 @@ class View(QtWidgets.QLabel):
                 fig1.show()
 
     @check_pick
-    def combine(self):
+    def combine(self, *args):
         channel = self.get_channel()
         picked_locs = self.picked_locs(channel, add_group=False)
         out_locs = []
@@ -2860,7 +2860,7 @@ class View(QtWidgets.QLabel):
         return imageprocess.rcc(images, callback=rc.set_value)
 
     @check_pick
-    def clear_picks(self):
+    def clear_picks(self, *args):
         self._picks = []
         self.update_scene(picks_only=True)
 
@@ -3575,7 +3575,7 @@ class View(QtWidgets.QLabel):
             fig.show()
 
     @check_pick
-    def show_trace(self):
+    def show_trace(self, *args):
         self.current_trace_x = 0
         self.current_trace_y = 0
 
@@ -3953,7 +3953,7 @@ class View(QtWidgets.QLabel):
         self.update_scene()
 
     @check_pick
-    def show_pick(self):
+    def show_pick(self, *args):
         print("Showing picks...")
         channel = self.get_channel3d("Select Channel")
 
@@ -4122,7 +4122,7 @@ class View(QtWidgets.QLabel):
         self.update_scene()
 
     @check_pick
-    def show_pick_3d(self):
+    def show_pick_3d(self, *args):
         print("Show pick 3D")
         channel = self.get_channel3d("Show Pick 3D")
         pixelsize = self.window.display_settings_dlg.pixelsize.value()
@@ -4173,7 +4173,7 @@ class View(QtWidgets.QLabel):
         self.update_scene()
 
     @check_pick
-    def show_pick_3d_iso(self):
+    def show_pick_3d_iso(self, *args):
         # essentially the same as show_pick_3d
         channel = self.get_channel3d("Show Pick 3D")
         removelist = []
@@ -4236,7 +4236,7 @@ class View(QtWidgets.QLabel):
         self.update_scene()
 
     @check_pick
-    def analyze_cluster(self):
+    def analyze_cluster(self, *args):
         """
         Tool to detect clusters with k-means clustering
         """
@@ -4391,7 +4391,7 @@ class View(QtWidgets.QLabel):
         self.update_scene()
 
     @check_picks
-    def filter_picks(self):
+    def filter_picks(self, *args):
         channel = self.get_channel("Pick similar")
         if channel is not None:
             locs = self.locs[channel]
@@ -4510,7 +4510,7 @@ class View(QtWidgets.QLabel):
         return self.index_blocks[channel]
 
     @check_picks
-    def save_pick_template(self, path="pick_template.yaml"):
+    def save_pick_template(self, path="pick_template.yaml", *args):
       if self._pick_shape == "Rectangle":
           raise NotImplementedError(
               "Pick similar not implemented for rectangle picks"
@@ -4669,7 +4669,7 @@ class View(QtWidgets.QLabel):
             self.add_picks(similar)
 
     @check_picks
-    def pick_similar(self):
+    def pick_similar(self, *args):
         if self._pick_shape == "Rectangle":
             raise NotImplementedError(
                 "Pick similar not implemented for rectangle picks"
@@ -5565,13 +5565,13 @@ class View(QtWidgets.QLabel):
                     self.update_scene()
 
     @check_picks
-    def undrift_from_picked(self):
+    def undrift_from_picked(self, *args):
         channel = self.get_channel("Undrift from picked")
         if channel is not None:
             self._undrift_from_picked(channel)
 
     @check_picks
-    def undrift_from_picked2d(self):
+    def undrift_from_picked2d(self, *args):
         channel = self.get_channel("Undrift from picked")
         if channel is not None:
             self._undrift_from_picked2d(channel)
